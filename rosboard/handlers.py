@@ -15,6 +15,12 @@ class NoCacheStaticFileHandler(tornado.web.StaticFileHandler):
         # Disable cache
         self.set_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
 
+        # Pozwól na osadzanie w iframe
+        self.set_header('X-Frame-Options', 'ALLOWALL')
+
+        # Lepszy, nowoczesny sposób:
+        self.set_header('Content-Security-Policy', "frame-ancestors *")
+
 class ROSBoardSocketHandler(tornado.websocket.WebSocketHandler):
     sockets = set()
 

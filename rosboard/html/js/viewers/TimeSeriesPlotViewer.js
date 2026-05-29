@@ -130,8 +130,7 @@ TimeSeriesPlotViewer.supportedTypes = [
     "std_msgs/msg/UInt16",
     "std_msgs/msg/UInt32",
     "std_msgs/msg/UInt64",
-    "std_msgs/msg/Float32",
-    "std_msgs/msg/Float64",
+    "std_msgs/msg/Float32"
 ];
 
 TimeSeriesPlotViewer.maxUpdateRate = 100.0;

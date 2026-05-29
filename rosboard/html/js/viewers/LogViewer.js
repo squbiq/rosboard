@@ -103,6 +103,8 @@ LogViewer.friendlyName = "Log view";
 LogViewer.supportedTypes = [
     "rcl_interfaces/msg/Log",
     "rosgraph_msgs/msg/Log",
+    "Logs",
+    "sensor_msgs/msg/Temperature"
 ];
 
 Viewer.registerViewer(LogViewer);

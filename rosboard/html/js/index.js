@@ -16,6 +16,8 @@ importJsOnce("js/viewers/TimeSeriesPlotViewer.js");
 importJsOnce("js/viewers/PointCloud2Viewer.js");
 importJsOnce("js/viewers/ImuViewer.js");
 importJsOnce("js/viewers/JointStateViewer.js");
+importJsOnce("js/viewers/CompassViewer.js");
+importJsOnce("js/viewers/CamViewer.js");
 
 // GenericViewer must be last
 importJsOnce("js/viewers/GenericViewer.js");
@@ -103,7 +105,7 @@ let onOpen = function() {
 let onSystem = function(system) {
   if(system.hostname) {
     console.log("hostname: " + system.hostname);
-    $('.mdl-layout-title').text("ROSboard: " + system.hostname);
+    $('.mdl-layout-title').text("RaptorsPL - Droniada");
   }
 
   if(system.version) {
@@ -145,21 +147,37 @@ let onTopics = function(topics) {
 
   $('<a></a>')
   .addClass("mdl-navigation__link")
-  .click(() => { initSubscribe({topicName: "_dmesg", topicType: "rcl_interfaces/msg/Log"}); })
-  .text("dmesg")
+  .click(() => { 
+    console.log(subscriptions)
+    for (const [key, value] of Object.entries(subscriptions)) {
+      $(value.viewer.card[0]).remove();
+    }
+    subscriptions = {};
+    initSubscribe({topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"});
+    initSubscribe({topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"});
+    initSubscribe({topicName: "/cam/view/test", topicType: "std_msgs/msg/CamViewFeed"});
+   })
+  .text("Konukrencja 1")
   .appendTo($("#topics-nav-system"));
+
 
   $('<a></a>')
   .addClass("mdl-navigation__link")
-  .click(() => { initSubscribe({topicName: "_top", topicType: "rosboard_msgs/msg/ProcessList"}); })
+  .click(() => { 
+    for (const [key, value] of Object.entries(subscriptions)) {
+      $(value.viewer.card[0]).remove();
+    }
+    subscriptions = {};
+    initSubscribe({topicName: "_top", topicType: "rosboard_msgs/msg/ProcessList"}); 
+  })
   .text("Processes")
   .appendTo($("#topics-nav-system"));
 
-  $('<a></a>')
-  .addClass("mdl-navigation__link")
-  .click(() => { initSubscribe({topicName: "_system_stats", topicType: "rosboard_msgs/msg/SystemStats"}); })
-  .text("System stats")
-  .appendTo($("#topics-nav-system"));
+  // $('<a></a>')
+  // .addClass("mdl-navigation__link")
+  // .click(() => { initSubscribe({topicName: "_system_stats", topicType: "rosboard_msgs/msg/SystemStats"}); })
+  // .text("System stats")
+  // .appendTo($("#topics-nav-system"));
 }
 
 function addTopicTreeToNav(topicTree, el, level = 0, path = "") {
@@ -202,6 +220,22 @@ function addTopicTreeToNav(topicTree, el, level = 0, path = "") {
     }
     addTopicTreeToNav(subTree, subEl, level + 1, path + "/" + subTree.name);
   });
+}
+
+function initDummy({topicName, topicType}) {
+  console.log( "Initialized dummy " + topicName + " of type " + topicType);
+  if(!subscriptions[topicName].viewer) {
+    let card = newCard();
+    let viewer = Viewer.getDefaultViewerForType(topicType);
+    try {
+      subscriptions[topicName].viewer = new viewer(card, topicName, topicType);
+    } catch(e) {
+      console.log(e);
+      card.remove();
+    }
+    $grid.masonry("appended", card);
+    $grid.masonry("layout");
+  }
 }
 
 function initSubscribe({topicName, topicType}) {
