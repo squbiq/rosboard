@@ -11,12 +11,13 @@ class Viewer {
     * Class constructor.
     * @constructor
   **/
-  constructor(card, topicName, topicType) {
+  constructor(card, topicName, topicType, options = {}) {
     this.card = card;
     this.isPaused = false;
 
     this.topicName = topicName;
     this.topicType = topicType;
+    this.options = options;
 
     this.onClose = () => {};
     let that = this;
@@ -227,6 +228,16 @@ Viewer.registerViewer = (viewer) => {
   Viewer._viewers.push(viewer);
 };
 
+Viewer.supportsType = (viewer, type) => {
+  return viewer.supportedTypes.some((supportedType) => {
+    if(supportedType === "*") return true;
+    if(supportedType.startsWith("*/")) {
+      return type.endsWith(supportedType.substring(1));
+    }
+    return supportedType === type;
+  });
+};
+
 // not to be overwritten by child class!
 Viewer.getDefaultViewerForType = (type) => {
   // gets the viewer class for a given message type (e.g. "std_msgs/msg/String")
@@ -239,10 +250,7 @@ Viewer.getDefaultViewerForType = (type) => {
 
   // go down the list of registered viewers and return the first match
   for(let i in Viewer._viewers) {
-    if(Viewer._viewers[i].supportedTypes.includes(type)) {
-      return Viewer._viewers[i];
-    }
-    if(Viewer._viewers[i].supportedTypes.includes("*")) {
+    if(Viewer.supportsType(Viewer._viewers[i], type)) {
       return Viewer._viewers[i];
     }
   }
@@ -263,14 +271,10 @@ Viewer.getViewersForType = (type) => {
 
   // go down the list of registered viewers and return the first match
   for(let i in Viewer._viewers) {
-    if(Viewer._viewers[i].supportedTypes.includes(type)) {
-      matchingViewers.push(Viewer._viewers[i]);
-    }
-    if(Viewer._viewers[i].supportedTypes.includes("*")) {
+    if(Viewer.supportsType(Viewer._viewers[i], type)) {
       matchingViewers.push(Viewer._viewers[i]);
     }
   }
 
   return matchingViewers;
 }
-

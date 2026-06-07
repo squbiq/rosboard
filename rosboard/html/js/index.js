@@ -3,6 +3,7 @@
 importJsOnce("js/viewers/meta/Viewer.js");
 importJsOnce("js/viewers/meta/Space2DViewer.js");
 importJsOnce("js/viewers/meta/Space3DViewer.js");
+importJsOnce("js/viewers/static/Viewer.js");
 
 importJsOnce("js/viewers/ImageViewer.js");
 importJsOnce("js/viewers/LogViewer.js");
@@ -17,6 +18,9 @@ importJsOnce("js/viewers/PointCloud2Viewer.js");
 importJsOnce("js/viewers/ImuViewer.js");
 importJsOnce("js/viewers/JointStateViewer.js");
 importJsOnce("js/viewers/CompassViewer.js");
+importJsOnce("js/viewers/HydroPhotoViewer.js");
+importJsOnce("js/viewers/HydroInfoViewer.js");
+importJsOnce("js/viewers/PanelReportViewer.js");
 importJsOnce("js/viewers/CamViewer.js");
 
 // GenericViewer must be last
@@ -27,18 +31,23 @@ importJsOnce("js/transports/WebSocketV1Transport.js");
 var snackbarContainer = document.querySelector('#demo-toast-example');
 
 let subscriptions = {};
+let staticViewers = {};
+let storedStaticViewers = {};
 
-if(window.localStorage && window.localStorage.subscriptions) {
+if(window.localStorage) {
   if(window.location.search && window.location.search.indexOf("reset") !== -1) {
     subscriptions = {};
+    storedStaticViewers = {};
     updateStoredSubscriptions();
     window.location.href = "?";
   } else {
     try {
-      subscriptions = JSON.parse(window.localStorage.subscriptions);
+      subscriptions = JSON.parse(window.localStorage.getItem("subscriptions") || "{}");
+      storedStaticViewers = JSON.parse(window.localStorage.getItem("staticViewers") || "{}");
     } catch(e) {
       console.log(e);
       subscriptions = {};
+      storedStaticViewers = {};
     }
   }
 }
@@ -51,6 +60,7 @@ $(() => {
     percentPosition: true,
   });
   $grid.masonry("layout");
+  restoreStaticViewers();
 });
 
 setInterval(() => {
@@ -68,7 +78,16 @@ function updateStoredSubscriptions() {
         topicType: subscriptions[topicName].topicType,
       };
     }
-    window.localStorage['subscriptions'] = JSON.stringify(storedSubscriptions);
+    let storedStaticDefinitions = {};
+    for(let viewerId in staticViewers) {
+      let viewer = staticViewers[viewerId];
+      storedStaticDefinitions[viewerId] = {
+        viewerType: viewer.constructor.name,
+        options: viewer.options,
+      };
+    }
+    window.localStorage.setItem("subscriptions", JSON.stringify(storedSubscriptions));
+    window.localStorage.setItem("staticViewers", JSON.stringify(storedStaticDefinitions));
   }
 }
 
@@ -99,13 +118,11 @@ let onOpen = function() {
     initSubscribe({topicName: topic_name, topicType: subscriptions[topic_name].topicType});
   }
 
-
 }
 
 let onSystem = function(system) {
   if(system.hostname) {
     console.log("hostname: " + system.hostname);
-    $('.mdl-layout-title').text("RaptorsPL - Droniada");
   }
 
   if(system.version) {
@@ -145,38 +162,85 @@ let onTopics = function(topics) {
   
   addTopicTreeToNav(topicTree[0], $('#topics-nav-ros'));
 
+  let camerOptions = {
+    mode: "hls",
+    rtspSrc: "rtsp://10.182.22.84:8554/test",
+    hlsSrc: "http://10.182.22.84:8890/test/index.m3u8",
+  };
+
+  // Konkurencja Ogień
   $('<a></a>')
   .addClass("mdl-navigation__link")
   .click(() => { 
     console.log(subscriptions)
-    for (const [key, value] of Object.entries(subscriptions)) {
-      $(value.viewer.card[0]).remove();
-    }
-    subscriptions = {};
-    initSubscribe({topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"});
-    initSubscribe({topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"});
-    initSubscribe({topicName: "/cam/view/test", topicType: "std_msgs/msg/CamViewFeed"});
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"}, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+
+      // Tablica raportów paneli.
+      {topicName: "/mavros/msg/PanelReport", topicType: "mavros_msgs/msg/PanelReport"},
+    ]);
    })
-  .text("Konukrencja 1")
+  .text("Ogien")
   .appendTo($("#topics-nav-system"));
 
-
+  // Konkurencja Woda
   $('<a></a>')
   .addClass("mdl-navigation__link")
   .click(() => { 
-    for (const [key, value] of Object.entries(subscriptions)) {
-      $(value.viewer.card[0]).remove();
-    }
-    subscriptions = {};
-    initSubscribe({topicName: "_top", topicType: "rosboard_msgs/msg/ProcessList"}); 
-  })
-  .text("Processes")
+    console.log(subscriptions)
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"}, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+    ]);
+   })
+  .text("Woda")
   .appendTo($("#topics-nav-system"));
 
+  // Konkurencja Hydrolab
+  $('<a></a>')
+  .addClass("mdl-navigation__link")
+  .click(() => { 
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"}, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+
+      // Wstawianie Topiku do HydroPhoto.msg, nie zmieniąc topicType
+      {topicName: "/mavros/msg/HydroPhoto", topicType: "mavros_msgs/msg/HydroPhoto"},
+
+      // Wstawianie Topiku do HydroInfo.msg,
+      {topicName: "/mavros/msg/HydroInfo", topicType: "mavros_msgs/msg/HydroInfo"},
+
+      // Testowałem z wykorzystaniem MediaMtx, Docker: 
+      // docker run --rm -it --name mediamtx -e MTX_RTSPTRANSPORTS=tcp -e MTX_WEBRTCADDITIONALHOSTS=10.182.22.84 -p 8554:8554 -p 8889:8889 -p 8890:8888 -p 8189:8189/udp bluenviron/mediamtx:1
+
+      // Uruchomienia Streama na portach 8890
+      // ffmpeg -re -loop 1 -i obraz1.jpg -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p" -r 30 -c:v libx264 -preset ultrafast -tune zerolatency -profile:v baseline -level 3.1 -bf 0 -g 30 -keyint_min 30 -sc_threshold 0 -f rtsp -rtsp_transport tcp rtsp://10.182.22.84:8554/test
+
+      // Odczytywanie streama na kliencie (np. VLC): rtsp://
+      // ffplay -rtsp_transport tcp rtsp://10.182.22.84:8554/test
+    ]); 
+  })
+  .text("HydroLab")
+  .appendTo($("#topics-nav-system"));
+
+  // Domyślne 
   // $('<a></a>')
   // .addClass("mdl-navigation__link")
-  // .click(() => { initSubscribe({topicName: "_system_stats", topicType: "rosboard_msgs/msg/SystemStats"}); })
-  // .text("System stats")
+  // .click(() => { 
+  //   clearViewers();
+  //   initSubscribe([
+  //     {topicName: "_top", topicType: "rosboard_msgs/msg/ProcessList"},
+  //     {topicName: "_system_stats", topicType: "rosboard_msgs/msg/SystemStats"}
+  //   ]); 
+  // })
+  // .text("Processes")
   // .appendTo($("#topics-nav-system"));
 }
 
@@ -238,31 +302,105 @@ function initDummy({topicName, topicType}) {
   }
 }
 
-function initSubscribe({topicName, topicType}) {
+function appendViewerCard(card) {
+  $grid.masonry("appended", card);
+  $grid.masonry("layout");
+}
+
+function restoreStaticViewers() {
+  for(let viewerId in storedStaticViewers) {
+    let definition = storedStaticViewers[viewerId];
+    initStaticViewer({
+      viewerType: definition.viewerType,
+      viewerId: viewerId,
+      options: definition.options,
+    });
+  }
+  storedStaticViewers = {};
+}
+
+function initStaticViewer({viewer, viewerType, viewerId, options = {}}) {
+  viewer = viewer || StaticViewer.getViewer(viewerType);
+  if(typeof viewer !== "function" || !(viewer.prototype instanceof StaticViewer)) {
+    console.error("Unknown static viewer or viewer does not extend StaticViewer", viewerType || viewer);
+    return;
+  }
+
+  viewerId = viewerId || viewer.name;
+  if(staticViewers[viewerId]) return;
+
+  let card = newCard();
+  try {
+    staticViewers[viewerId] = new viewer(card, viewerId, options);
+  } catch(e) {
+    console.error(e);
+    card.remove();
+    return;
+  }
+  appendViewerCard(card);
+  updateStoredSubscriptions();
+}
+
+function initSubscribe(subscriptionDefinitions) {
+  let definitions = Array.isArray(subscriptionDefinitions)
+    ? subscriptionDefinitions
+    : [subscriptionDefinitions];
+
+  definitions.forEach((definition) => {
+    if(definition && (definition.viewer || definition.viewerType)) {
+      initStaticViewer(definition);
+      return;
+    }
+    initTopicSubscription(definition);
+  });
+}
+
+function initTopicSubscription({topicName, topicType}) {
   console.log( "Subscribing to " + topicName + " of type " + topicType);
   // creates a subscriber for topicName
   // and also initializes a viewer (if it doesn't already exist)
   // in advance of arrival of the first data
   // this way the user gets a snappy UI response because the viewer appears immediately
   if(!subscriptions[topicName]) {
-    subscriptions[topicName] = {
-      topicType: topicType,
-    }
+    subscriptions[topicName] = { topicType: topicType }
   }  
   currentTransport.subscribe({topicName: topicName});
   if(!subscriptions[topicName].viewer) {
     let card = newCard();
     let viewer = Viewer.getDefaultViewerForType(topicType);
+    if(!viewer) {
+      console.error("No viewer available for topic type", topicType);
+      card.remove();
+      return;
+    }
     try {
       subscriptions[topicName].viewer = new viewer(card, topicName, topicType);
     } catch(e) {
-      console.log(e);
+      console.error(e);
       card.remove();
+      return;
     }
-    $grid.masonry("appended", card);
-    $grid.masonry("layout");
+    appendViewerCard(card);
   }
   updateStoredSubscriptions();
+}
+
+function clearViewers() {
+  for(let topicName in subscriptions) {
+    currentTransport.unsubscribe({topicName: topicName});
+    if(subscriptions[topicName].viewer) {
+      subscriptions[topicName].viewer.destroy();
+      $grid.masonry("remove", subscriptions[topicName].viewer.card);
+    }
+  }
+  for(let viewerId in staticViewers) {
+    staticViewers[viewerId].destroy();
+    $grid.masonry("remove", staticViewers[viewerId].card);
+  }
+  subscriptions = {};
+  staticViewers = {};
+  updateStoredSubscriptions();
+  $grid.masonry("layout");
 }
 
 let currentTransport = null;
@@ -323,9 +461,19 @@ $(() => {
 });
 
 Viewer.onClose = function(viewerInstance) {
+  if(viewerInstance instanceof StaticViewer) {
+    viewerInstance.destroy();
+    $grid.masonry("remove", viewerInstance.card);
+    $grid.masonry("layout");
+    delete(staticViewers[viewerInstance.viewerId]);
+    updateStoredSubscriptions();
+    return;
+  }
+
   let topicName = viewerInstance.topicName;
   let topicType = viewerInstance.topicType;
   currentTransport.unsubscribe({topicName:topicName});
+  viewerInstance.destroy();
   $grid.masonry("remove", viewerInstance.card);
   $grid.masonry("layout");
   delete(subscriptions[topicName].viewer);
@@ -342,5 +490,3 @@ Viewer.onSwitchViewer = (viewerInstance, newViewerType) => {
   delete(subscriptions[topicName].viewer);
   subscriptions[topicName].viewer = new newViewerType(card, topicName, topicType);
 };
-
-
