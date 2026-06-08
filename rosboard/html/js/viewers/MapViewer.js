@@ -2,7 +2,8 @@
 
 class MapViewer extends Viewer {
   onCreate() {
-    this.card.title.text("Trasa pojazdu");
+    this.mapMode = this.options.mode === "points" ? "points" : "path";
+    this.card.title.text(this.options.title || "Dane pojazdu");
 
     this.viewer = $("<div></div>")
       .css({"font-size": "11pt"})
@@ -41,6 +42,7 @@ class MapViewer extends Viewer {
       weight: 4,
     }).addTo(this.map);
     this.currentMarker = null;
+    this.pointMarkers = [];
 
     setTimeout(() => this.map.invalidateSize(), 0);
     super.onCreate();
@@ -64,37 +66,60 @@ class MapViewer extends Viewer {
   }
 
   onData(msg) {
-    this.card.title.text(msg._topic_name || "Trasa pojazdu");
-    this.updateRoute(Array.isArray(msg.points) ? msg.points : []);
+    this.updateMap(Array.isArray(msg.points) ? msg.points : []);
   }
 
-  updateRoute(points) {
-    let route = points
+  updateMap(points) {
+    let positions = points
       .map((point) => {
-        let lat = Number(point && point.lat);
-        let lon = Number(point && point.lon);
+        if(!point || typeof point !== "object") return null;
+
+        let lat = Number(
+          point.lat !== undefined ? point.lat : point.latitude
+        );
+        let lon = Number(
+          point.lon !== undefined
+            ? point.lon
+            : point.lng !== undefined ? point.lng : point.longitude
+        );
         return Number.isFinite(lat) && Number.isFinite(lon)
           ? [lat, lon]
           : null;
       })
       .filter((point) => point !== null);
 
-    if(!route.length) {
-      this.routeLine.setLatLngs([]);
+    if(!positions.length) {
+      this.clearMapData();
       this.values.latitude.text("-");
       this.values.longitude.text("-");
-      if(this.currentMarker) {
-        this.currentMarker.remove();
-        this.currentMarker = null;
-      }
       return;
     }
 
+    if(this.mapMode === "points") {
+      this.renderPoints(positions);
+    } else {
+      this.renderPath(positions);
+    }
+  }
+
+  clearMapData() {
+    this.routeLine.setLatLngs([]);
+
+    if(this.currentMarker) {
+      this.currentMarker.remove();
+      this.currentMarker = null;
+    }
+
+    this.pointMarkers.forEach((marker) => marker.remove());
+    this.pointMarkers = [];
+  }
+
+  renderPath(route) {
+    this.clearPointMarkers();
+
     let lastPosition = route[route.length - 1];
-    let routeWithoutCurrentPosition = route.slice(0, -1);
-    this.routeLine.setLatLngs(routeWithoutCurrentPosition);
-    this.values.latitude.text(lastPosition[0].toFixed(7));
-    this.values.longitude.text(lastPosition[1].toFixed(7));
+    this.routeLine.setLatLngs(route.slice(0, -1));
+    this.updatePositionInfo(lastPosition);
 
     if(!this.currentMarker) {
       this.currentMarker = L.marker(lastPosition)
@@ -104,10 +129,43 @@ class MapViewer extends Viewer {
       this.currentMarker.setLatLng(lastPosition);
     }
 
-    if(route.length === 1) {
+    this.fitMapToPositions(route, lastPosition);
+  }
+
+  renderPoints(positions) {
+    this.routeLine.setLatLngs([]);
+    if(this.currentMarker) {
+      this.currentMarker.remove();
+      this.currentMarker = null;
+    }
+
+    this.clearPointMarkers();
+    this.pointMarkers = positions.map((position, index) =>
+      L.marker(position)
+        .bindPopup(`Punkt ${index + 1}`)
+        .addTo(this.map)
+    );
+
+    let lastPosition = positions[positions.length - 1];
+    this.updatePositionInfo(lastPosition);
+    this.fitMapToPositions(positions, lastPosition);
+  }
+
+  clearPointMarkers() {
+    this.pointMarkers.forEach((marker) => marker.remove());
+    this.pointMarkers = [];
+  }
+
+  updatePositionInfo(lastPosition) {
+    this.values.latitude.text(lastPosition[0].toFixed(7));
+    this.values.longitude.text(lastPosition[1].toFixed(7));
+  }
+
+  fitMapToPositions(positions, lastPosition) {
+    if(positions.length === 1) {
       this.map.setView(lastPosition, 17);
     } else {
-      this.map.fitBounds(L.latLngBounds(route), {
+      this.map.fitBounds(L.latLngBounds(positions), {
         padding: [30, 30],
         maxZoom: 18,
       });
@@ -131,6 +189,7 @@ MapViewer.friendlyName = "Street Map";
 
 MapViewer.supportedTypes = [
   "geographic_msgs/msg/GeoPoint",
+  "mavros_msgs/msg/GPSRAW"
 ];
 
 MapViewer.maxUpdateRate = 10.0;

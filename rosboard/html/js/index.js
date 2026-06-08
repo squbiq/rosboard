@@ -76,6 +76,7 @@ function updateStoredSubscriptions() {
     for(let topicName in subscriptions) {
       storedSubscriptions[topicName] = {
         topicType: subscriptions[topicName].topicType,
+        options: subscriptions[topicName].options || {},
       };
     }
     let storedStaticDefinitions = {};
@@ -115,7 +116,11 @@ let onOpen = function() {
   
   for(let topic_name in subscriptions) {
     console.log("Re-subscribing to " + topic_name);
-    initSubscribe({topicName: topic_name, topicType: subscriptions[topic_name].topicType});
+    initSubscribe({
+      topicName: topic_name,
+      topicType: subscriptions[topic_name].topicType,
+      options: subscriptions[topic_name].options || {},
+    });
   }
 
 }
@@ -168,47 +173,20 @@ let onTopics = function(topics) {
     hlsSrc: "http://10.182.22.84:8890/test/index.m3u8",
   };
 
-  // Konkurencja Ogień
-  $('<a></a>')
-  .addClass("mdl-navigation__link")
-  .click(() => { 
-    console.log(subscriptions)
-    clearViewers();
-    initSubscribe([
-      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
-      {topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"}, // Lokalizacja Drona
-      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+  // Hydrolab, LML Basic, LML Advanced, Sztafeta, Woda, Ogień
 
-      // Tablica raportów paneli.
-      {topicName: "/mavros/msg/PanelReport", topicType: "mavros_msgs/msg/PanelReport"},
-    ]);
-   })
-  .text("Ogien")
-  .appendTo($("#topics-nav-system"));
-
-  // Konkurencja Woda
-  $('<a></a>')
-  .addClass("mdl-navigation__link")
-  .click(() => { 
-    console.log(subscriptions)
-    clearViewers();
-    initSubscribe([
-      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
-      {topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"}, // Lokalizacja Drona
-      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
-    ]);
-   })
-  .text("Woda")
-  .appendTo($("#topics-nav-system"));
-
-  // Konkurencja Hydrolab
+  // 1. Konkurencja Hydrolab
   $('<a></a>')
   .addClass("mdl-navigation__link")
   .click(() => { 
     clearViewers();
     initSubscribe([
       {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
-      {topicName: "/mavros/gpsstatus/gps1/raw", topicType: "mavros_msgs/msg/GPSRAW"}, // Lokalizacja Drona
+      {
+        topicName: "/mavros/gpsstatus/gps1/raw", 
+        topicType: "mavros_msgs/msg/GPSRAW",
+        options: { title: "Pozycja Drona" }
+      }, // Lokalizacja Drona
       {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
 
       // Wstawianie Topiku do HydroPhoto.msg, nie zmieniąc topicType
@@ -228,6 +206,109 @@ let onTopics = function(topics) {
     ]); 
   })
   .text("HydroLab")
+  .appendTo($("#topics-nav-system"));
+
+  // 2. LML Basic
+  $('<a></a>')
+  .addClass("mdl-navigation__link")
+  .click(() => { 
+    console.log(subscriptions)
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {
+        topicName: "/mavros/gpsstatus/gps1/raw", 
+        topicType: "mavros_msgs/msg/GPSRAW",
+        options: { title: "Pozycja Drona" }
+      }, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+    ]);
+   })
+  .text("LML Basic")
+  .appendTo($("#topics-nav-system"));
+
+  // 3. LML Advanced, TODO Dodanie BallStatus
+  $('<a></a>')
+  .addClass("mdl-navigation__link")
+  .click(() => { 
+    console.log(subscriptions)
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {
+        topicName: "/mavros/gpsstatus/gps1/raw", 
+        topicType: "mavros_msgs/msg/GPSRAW",
+        options: { title: "Pozycja Drona" }
+      }, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+    ]);
+   })
+  .text("LML Advanced")
+  .appendTo($("#topics-nav-system"));
+
+  // 4. Sztafeta, TODO Dodanie BallStatus
+  $('<a></a>')
+  .addClass("mdl-navigation__link")
+  .click(() => { 
+    console.log(subscriptions)
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {
+        topicName: "/mavros/gpsstatus/gps1/raw", 
+        topicType: "mavros_msgs/msg/GPSRAW",
+        options: { title: "Pozycja Krotek", mode: "points" }
+      }, // Pozycja Krotek, tryb punktów
+      {
+        topicName: "/mavros/gpsstatus/gps1/raw", 
+        topicType: "mavros_msgs/msg/GPSRAW",
+        options: { title: "Pozycja Drona" }
+      }, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+    ]);
+   })
+  .text("Sztafeta")
+  .appendTo($("#topics-nav-system"));
+
+  // 5. Konkurencja Woda
+  $('<a></a>')
+  .addClass("mdl-navigation__link")
+  .click(() => { 
+    console.log(subscriptions)
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {
+        topicName: "/mavros/gpsstatus/gps1/raw",
+        topicType: "mavros_msgs/msg/GPSRAW",
+        options: { title: "Pozycja Drona" }
+      }, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+    ]);
+   })
+  .text("Woda")
+  .appendTo($("#topics-nav-system"));
+
+  // 7. Konkurencja Ogień
+  $('<a></a>')
+  .addClass("mdl-navigation__link")
+  .click(() => { 
+    console.log(subscriptions)
+    clearViewers();
+    initSubscribe([
+      {topicName: "/mavros/global_position/compass_hdg", topicType: "std_msgs/msg/Float64"}, // Kompas
+      {
+        topicName: "/mavros/gpsstatus/gps1/raw", 
+        topicType: "mavros_msgs/msg/GPSRAW",
+        options: { title: "Pozycja Drona" }
+      }, // Lokalizacja Drona
+      {viewer: CamViewer, viewerId: "camera", options: camerOptions}, // Stream z kamery
+
+      // Tablica raportów paneli.
+      {topicName: "/mavros/msg/PanelReport", topicType: "mavros_msgs/msg/PanelReport"},
+    ]);
+   })
+  .text("Ogien")
   .appendTo($("#topics-nav-system"));
 
   // Domyślne 
@@ -355,15 +436,20 @@ function initSubscribe(subscriptionDefinitions) {
   });
 }
 
-function initTopicSubscription({topicName, topicType}) {
+function initTopicSubscription({topicName, topicType, options = {}}) {
   console.log( "Subscribing to " + topicName + " of type " + topicType);
   // creates a subscriber for topicName
   // and also initializes a viewer (if it doesn't already exist)
   // in advance of arrival of the first data
   // this way the user gets a snappy UI response because the viewer appears immediately
   if(!subscriptions[topicName]) {
-    subscriptions[topicName] = { topicType: topicType }
-  }  
+    subscriptions[topicName] = {
+      topicType: topicType,
+      options: options,
+    };
+  } else {
+    subscriptions[topicName].options = options;
+  }
   currentTransport.subscribe({topicName: topicName});
   if(!subscriptions[topicName].viewer) {
     let card = newCard();
@@ -374,7 +460,12 @@ function initTopicSubscription({topicName, topicType}) {
       return;
     }
     try {
-      subscriptions[topicName].viewer = new viewer(card, topicName, topicType);
+      subscriptions[topicName].viewer = new viewer(
+        card,
+        topicName,
+        topicType,
+        options
+      );
     } catch(e) {
       console.error(e);
       card.remove();
