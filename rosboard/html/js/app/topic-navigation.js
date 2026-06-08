@@ -1,0 +1,213 @@
+"use strict";
+
+function onTopics(topics) {
+  let newTopicsStr = JSON.stringify(topics);
+  if(newTopicsStr === currentTopicsStr) return;
+  currentTopics = topics;
+  currentTopicsStr = newTopicsStr;
+
+  let topicTree = treeifyPaths(Object.keys(topics));
+
+  $("#topics-nav-ros").empty();
+  $("#topics-nav-system").empty();
+
+  addTopicTreeToNav(topicTree[0], $("#topics-nav-ros"));
+
+  let camerOptions = {
+    mode: "hls",
+    rtspSrc: "rtsp://10.182.22.84:8554/test",
+    hlsSrc: "http://10.182.22.84:8890/test/index.m3u8",
+  };
+
+  let droneRoute = {
+    topicName: "/drone_mission_planner/location_history",
+    topicType: "mavros_msgs/msg/GPSRAW",
+    options: { title: "Pozycja Drona" }
+  };
+
+  let cargoPoints = {
+    topicName: "/cargo_points",
+    topicType: "mavros_msgs/msg/GPSRAW",
+    options: { title: "Pozycja Krotek", mode: "points" }
+  }
+
+  // Hydrolab, LML Basic, LML Advanced, Sztafeta, Woda, Ogien
+
+  // 1. Konkurencja Hydrolab
+  $("<a></a>")
+    .addClass("mdl-navigation__link")
+    .click(() => {
+      clearViewers();
+      initSubscribe([
+        {
+          topicName: "/mavros/global_position/compass_hdg",
+          topicType: "std_msgs/msg/Float64"
+        },
+        droneRoute,
+        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        {topicName: "/hydro_photo", topicType: "droniada_msgs/msg/HydroPhoto"},
+        {topicName: "/hydro_info", topicType: "droniada_msgs/msg/HydroInfo"},
+      ]);
+    })
+    .text("HydroLab")
+    .appendTo($("#topics-nav-system"));
+
+  // 2. LML Basic
+  $("<a></a>")
+    .addClass("mdl-navigation__link")
+    .click(() => {
+      console.log(subscriptions);
+      clearViewers();
+      initSubscribe([
+        {
+          topicName: "/mavros/global_position/compass_hdg",
+          topicType: "std_msgs/msg/Float64"
+        },
+        droneRoute,
+        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+      ]);
+    })
+    .text("LML Basic")
+    .appendTo($("#topics-nav-system"));
+
+  // 3. LML Advanced, TODO Dodanie BallStatus
+  $("<a></a>")
+    .addClass("mdl-navigation__link")
+    .click(() => {
+      console.log(subscriptions);
+      clearViewers();
+      initSubscribe([
+        {
+          topicName: "/mavros/global_position/compass_hdg",
+          topicType: "std_msgs/msg/Float64"
+        },
+        droneRoute,
+        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+      ]);
+    })
+    .text("LML Advanced")
+    .appendTo($("#topics-nav-system"));
+
+  // 4. Sztafeta, TODO Dodanie BallStatus
+  $("<a></a>")
+    .addClass("mdl-navigation__link")
+    .click(() => {
+      console.log(subscriptions);
+      clearViewers();
+      initSubscribe([
+        {
+          topicName: "/mavros/global_position/compass_hdg",
+          topicType: "std_msgs/msg/Float64"
+        },
+        cargoPoints,
+        droneRoute,
+        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+      ]);
+    })
+    .text("Sztafeta")
+    .appendTo($("#topics-nav-system"));
+
+  // 5. Konkurencja Woda
+  $("<a></a>")
+    .addClass("mdl-navigation__link")
+    .click(() => {
+      console.log(subscriptions);
+      clearViewers();
+      initSubscribe([
+        {
+          topicName: "/mavros/global_position/compass_hdg",
+          topicType: "std_msgs/msg/Float64"
+        },
+        droneRoute,
+        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+      ]);
+    })
+    .text("Woda")
+    .appendTo($("#topics-nav-system"));
+
+  // 7. Konkurencja Ogien
+  $("<a></a>")
+    .addClass("mdl-navigation__link")
+    .click(() => {
+      console.log(subscriptions);
+      clearViewers();
+      initSubscribe([
+        {
+          topicName: "/mavros/global_position/compass_hdg",
+          topicType: "std_msgs/msg/Float64"
+        },
+        droneRoute,
+        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        {topicName: "/panel_report", topicType: "droniada_msgs/msg/PanelReport"},
+      ]);
+    })
+    .text("Ogien")
+    .appendTo($("#topics-nav-system"));
+}
+
+function addTopicTreeToNav(topicTree, el, level = 0, path = "") {
+  topicTree.children.sort((a, b) => {
+    if(a.name > b.name) return 1;
+    if(a.name < b.name) return -1;
+    return 0;
+  });
+
+  topicTree.children.forEach((subTree) => {
+    let subEl = $("<div></div>")
+      .css(level < 1 ? {} : {
+        "padding-left": "0pt",
+        "margin-left": "12pt",
+        "border-left": "1px dashed #808080",
+      })
+      .appendTo(el);
+    let fullTopicName = path + "/" + subTree.name;
+    let topicType = currentTopics[fullTopicName];
+
+    if(topicType) {
+      $("<a></a>")
+        .addClass("mdl-navigation__link")
+        .css({
+          "padding-left": "12pt",
+          "margin-left": 0,
+        })
+        .click(() => {
+          initSubscribe({topicName: fullTopicName, topicType: topicType});
+        })
+        .text(subTree.name)
+        .appendTo(subEl);
+    } else {
+      $("<a></a>")
+        .addClass("mdl-navigation__link")
+        .attr("disabled", "disabled")
+        .css({
+          "padding-left": "12pt",
+          "margin-left": 0,
+          opacity: 0.5,
+        })
+        .text(subTree.name)
+        .appendTo(subEl);
+    }
+    addTopicTreeToNav(
+      subTree,
+      subEl,
+      level + 1,
+      path + "/" + subTree.name
+    );
+  });
+}
+
+function treeifyPaths(paths) {
+  let result = [];
+  let level = {result};
+
+  paths.forEach((path) => {
+    path.split("/").reduce((parent, name) => {
+      if(!parent[name]) {
+        parent[name] = {result: []};
+        parent.result.push({name, children: parent[name].result});
+      }
+      return parent[name];
+    }, level);
+  });
+  return result;
+}

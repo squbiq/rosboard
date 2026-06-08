@@ -25,6 +25,7 @@ setup(
             'html/css/*',
             'html/css/images/*',
             'html/js/*',
+            'html/js/app/*',
             'html/js/libs/*',
             'html/js/viewers/*',
             'html/js/viewers/meta/*',
