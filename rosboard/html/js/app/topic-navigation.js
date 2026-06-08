@@ -14,9 +14,7 @@ function onTopics(topics) {
   addTopicTreeToNav(topicTree[0], $("#topics-nav-ros"));
 
   let camerOptions = {
-    mode: "hls",
-    rtspSrc: "rtsp://10.182.22.84:8554/test",
-    hlsSrc: "http://10.182.22.84:8890/test/index.m3u8",
+    webrtcSrc: "http://127.0.0.1:8889/test"
   };
 
   let droneRoute = {

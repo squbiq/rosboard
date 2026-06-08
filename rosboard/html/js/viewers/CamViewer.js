@@ -2,56 +2,15 @@
 
 class CamViewer extends StaticViewer {
   onCreate() {
-    this.card.title.text("Video Kamery");
+    this.card.title.text(this.options.title || "Video Kamery");
 
-    // options: {
-    //  mode = "webrtc" | "hls",
-    //  rtspSrc: "rtsp://10.109.43.243:8554/test", // ścieżka rtsp
-    //  hlsSrc: "http://10.109.43.243:8890/test/index.m3u8", // ścieżka hls
-    // } Jedna musi być !
-
-    this.options.mode = this.options.mode || "hls";
-    this.options.rtspSrc = this.options.rtspSrc || "rtsp://10.109.43.243:8554/test";
-    this.options.hlsSrc = this.options.hlsSrc || "http://10.109.43.243:8890/test/index.m3u8";
-    if(this.options.hlsSrc === "http://10.109.43.243:8888/test/index.m3u8") {
-      this.options.hlsSrc = "http://10.109.43.243:8890/test/index.m3u8";
-    }
-
-    this.player = $("<div></div>").appendTo(this.card.content);
-
-    if(this.options.mode === "webrtc") {
-      this.loadWebRtc();
-    } else {
-      this.loadHls();
-    }
-  }
-
-  loadWebRtc() {
-    let webRtcSrc = this.getWebRtcSrc(this.options.rtspSrc);
-    if(!webRtcSrc) {
-      this.error("Niepoprawna ścieżka rtspSrc.");
+    if(!this.options.webrtcSrc) {
+      this.error("Brak adresu WHEP w options.webrtcSrc.");
       return;
     }
 
-    this.frame = $("<iframe></iframe>")
-      .attr({
-        src: webRtcSrc,
-        allow: "autoplay; fullscreen; microphone",
-        allowfullscreen: true,
-      })
-      .css({
-        "border": "0",
-        "display": "block",
-        "width": "100%",
-        "height": "420px",
-        "background": "#000000",
-      })
-      .appendTo(this.player);
-  }
-
-  loadHls() {
-    if(!this.options.hlsSrc) {
-      this.error("Brak ścieżki hlsSrc.");
+    if(typeof MediaMTXWebRTCReader === "undefined") {
+      this.error("Nie załadowano biblioteki mediamtx-reader.js.");
       return;
     }
 
@@ -61,73 +20,97 @@ class CamViewer extends StaticViewer {
         controls: true,
         playsinline: true,
       })
-      .prop("muted", true)
+      .prop("muted", this.options.muted !== false)
       .css({
         "display": "block",
         "width": "100%",
+        "max-height": this.options.height || "500px",
         "background": "#000000",
       })
-      .appendTo(this.player);
+      .appendTo(this.card.content);
 
-    let videoElement = this.video[0];
-    if(typeof Hls !== "undefined" && Hls.isSupported()) {
-      this.hls = new Hls({
-        lowLatencyMode: true,
-        backBufferLength: 30,
-      });
-      this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        let playPromise = videoElement.play();
-        if(playPromise) playPromise.catch(() => {});
-      });
-      this.hls.on(Hls.Events.ERROR, (event, data) => {
-        if(!data.fatal) return;
-        if(data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          this.hls.startLoad();
-        } else if(data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          this.hls.recoverMediaError();
-        } else {
-          this.error("Błąd HLS: " + data.details);
-          this.hls.destroy();
-          this.hls = null;
+    this.status = $("<div></div>")
+      .addClass("monospace")
+      .text("Łączenie z WebRTC...")
+      .css({
+        "padding": "6px 10px",
+        "font-size": "11px",
+        "text-align": "center",
+      })
+      .appendTo(this.card.content);
+
+    let whepUrl = this.getWhepUrl(this.options.webrtcSrc);
+    let sourceHost = new URL(whepUrl).hostname;
+
+    this.reader = new MediaMTXWebRTCReader({
+      url: whepUrl,
+      user: this.options.user || "",
+      pass: this.options.pass || "",
+      token: this.options.token || "",
+      localCandidateHost: this.isLoopbackHost(sourceHost)
+        ? sourceHost
+        : undefined,
+      onError: (message) => {
+        this.status.text(`WebRTC: ${message}`);
+      },
+      onConnectionState: (state) => {
+        this.updateConnectionStatus(state);
+      },
+      onTrack: (event) => {
+        if(!event.streams || !event.streams[0]) return;
+
+        let videoElement = this.video[0];
+        if(videoElement.srcObject !== event.streams[0]) {
+          videoElement.srcObject = event.streams[0];
         }
+        this.playVideo(videoElement);
+      },
+    });
+  }
+
+  getWhepUrl(source) {
+    return source.replace(/\/+$/, "").endsWith("/whep")
+      ? source.replace(/\/+$/, "")
+      : source.replace(/\/+$/, "") + "/whep";
+  }
+
+  isLoopbackHost(host) {
+    return host === "127.0.0.1" || host === "localhost" || host === "::1";
+  }
+
+  updateConnectionStatus(state) {
+    let labels = {
+      "new": "WebRTC: inicjalizacja",
+      "connecting": "WebRTC: łączenie ICE...",
+      "connected": "WebRTC połączone",
+      "disconnected": "WebRTC: połączenie przerwane",
+      "failed": "WebRTC: połączenie ICE nieudane",
+      "closed": "WebRTC: połączenie zamknięte",
+    };
+    this.status.text(labels[state] || `WebRTC: ${state}`);
+  }
+
+  playVideo(videoElement) {
+    let playPromise = videoElement.play();
+    if(playPromise) {
+      playPromise.catch(() => {
+        this.status.text("Naciśnij play, aby uruchomić stream");
       });
-      this.hls.loadSource(this.options.hlsSrc);
-      this.hls.attachMedia(videoElement);
-    } else if(videoElement.canPlayType("application/vnd.apple.mpegurl")) {
-      videoElement.src = this.options.hlsSrc;
-    } else {
-      this.error("Ta przeglądarka nie obsługuje HLS.");
     }
-  }
-
-  getWebRtcSrc(rtspSrc) {
-    try {
-      let source = new URL(rtspSrc);
-      let path = source.pathname.replace(/\/+$/, "");
-      return `http://${source.hostname}:8889${path}`;
-    } catch(error) {
-      console.error("Niepoprawny rtspSrc", rtspSrc, error);
-      return null;
-    }
-  }
-
-  destroyPlayer() {
-    if(this.hls) {
-      this.hls.destroy();
-      this.hls = null;
-    }
-    if(this.video) {
-      this.video[0].pause();
-      this.video.removeAttr("src");
-      this.video[0].load();
-      this.video = null;
-    }
-    this.frame = null;
-    if(this.player) this.player.empty();
   }
 
   destroy() {
-    this.destroyPlayer();
+    if(this.reader) {
+      this.reader.close();
+      this.reader = null;
+    }
+
+    if(this.video) {
+      let videoElement = this.video[0];
+      videoElement.pause();
+      videoElement.srcObject = null;
+    }
+
     super.destroy();
   }
 }
