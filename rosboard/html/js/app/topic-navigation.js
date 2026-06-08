@@ -19,13 +19,13 @@ function onTopics(topics) {
 
   let droneRoute = {
     topicName: "/drone_mission_planner/location_history",
-    topicType: "mavros_msgs/msg/GPSRAW",
+    topicType: "droniada_msgs/msg/DroneRoute",
     options: { title: "Pozycja Drona" }
   };
 
   let cargoPoints = {
     topicName: "/cargo_points",
-    topicType: "mavros_msgs/msg/GPSRAW",
+    topicType: "droniada_msgs/msg/GeoPoints",
     options: { title: "Pozycja Krotek", mode: "points" }
   }
 

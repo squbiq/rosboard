@@ -14,6 +14,16 @@ class CamViewer extends StaticViewer {
       return;
     }
 
+    this.videoContainer = $("<div></div>")
+      .css({
+        "position": "relative",
+        "width": "100%",
+        "aspect-ratio": this.options.aspectRatio || "16 / 9",
+        "background": "#000000",
+        "overflow": "hidden",
+      })
+      .appendTo(this.card.content);
+
     this.video = $("<video></video>")
       .attr({
         autoplay: true,
@@ -23,11 +33,15 @@ class CamViewer extends StaticViewer {
       .prop("muted", this.options.muted !== false)
       .css({
         "display": "block",
+        "position": "absolute",
+        "inset": "0",
         "width": "100%",
-        "max-height": this.options.height || "500px",
+        "height": "100%",
+        "object-fit": "contain",
         "background": "#000000",
       })
-      .appendTo(this.card.content);
+      .on("loadedmetadata resize", () => this.layoutGrid())
+      .appendTo(this.videoContainer);
 
     this.status = $("<div></div>")
       .addClass("monospace")
@@ -38,6 +52,11 @@ class CamViewer extends StaticViewer {
         "text-align": "center",
       })
       .appendTo(this.card.content);
+
+    if(typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(() => this.layoutGrid());
+      this.resizeObserver.observe(this.card[0]);
+    }
 
     let whepUrl = this.getWhepUrl(this.options.webrtcSrc);
     let sourceHost = new URL(whepUrl).hostname;
@@ -88,6 +107,21 @@ class CamViewer extends StaticViewer {
       "closed": "WebRTC: połączenie zamknięte",
     };
     this.status.text(labels[state] || `WebRTC: ${state}`);
+    this.layoutGrid();
+  }
+
+  layoutGrid() {
+    if(this.layoutPending) {
+      return;
+    }
+
+    this.layoutPending = true;
+    window.requestAnimationFrame(() => {
+      this.layoutPending = false;
+      if(typeof $grid !== "undefined" && $grid) {
+        $grid.masonry("layout");
+      }
+    });
   }
 
   playVideo(videoElement) {
@@ -100,6 +134,11 @@ class CamViewer extends StaticViewer {
   }
 
   destroy() {
+    if(this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+
     if(this.reader) {
       this.reader.close();
       this.reader = null;

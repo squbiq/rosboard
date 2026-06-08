@@ -189,7 +189,9 @@ MapViewer.friendlyName = "Street Map";
 
 MapViewer.supportedTypes = [
   "geographic_msgs/msg/GeoPoint",
-  "mavros_msgs/msg/GPSRAW"
+  "mavros_msgs/msg/GPSRAW",
+  "droniada_msgs/msg/DroneRoute",
+  "droniada_msgs/msg/GeoPoints"
 ];
 
 MapViewer.maxUpdateRate = 10.0;
