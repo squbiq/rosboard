@@ -19,7 +19,7 @@ function onTopics(topics) {
 
   let CameraVideo = { // Stream Video Webrtc 
     viewer: CamViewer, viewerId: "camera", options: {
-      webrtcSrc: "http://127.0.0.1:8889/test"
+      webrtcSrc: "http://192.168.67.167:8889/kamera1"
     }
   }
 
@@ -60,7 +60,8 @@ function onTopics(topics) {
       console.log(subscriptions);
       clearViewers();
       initSubscribe([
-        Compass, DroneRoute, CameraVideo, MissionStatus
+        Compass, DroneRoute, CameraVideo, MissionStatus,
+        { topicName: "/ball_status", topicType: "droniada_msgs/msg/BallStatus" } // Status Piłek
       ]);
     })
     .text("LML Basic")

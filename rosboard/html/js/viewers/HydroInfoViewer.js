@@ -94,17 +94,32 @@ class HydroInfoViewer extends Viewer {
       .appendTo(container);
   }
 
-  onData(msg) {
-    let newItems = this.extractItems(msg);
-    if(!newItems.length) return;
+onData(msg) {
+  let newItems = this.extractItems(msg);
+  if(!newItems.length) return;
 
-    this.items.push(...newItems);
-    if(!this.isBrowsingHistory) {
-      this.showItem(this.items.length - 1);
+  let lastChangedIndex = -1;
+
+  newItems.forEach((newItem) => {
+    let existingIndex = this.items.findIndex((item) =>
+      item && item.pool_id === newItem.pool_id
+    );
+
+    if(existingIndex >= 0) {
+      this.items[existingIndex] = newItem;
+      lastChangedIndex = existingIndex;
     } else {
-      this.updateButtons();
+      this.items.push(newItem);
+      lastChangedIndex = this.items.length - 1;
     }
+  });
+
+  if(!this.isBrowsingHistory) {
+    this.showItem(lastChangedIndex);
+  } else {
+    this.showItem(this.currentIndex);
   }
+}
 
   navigateTo(index) {
     this.isBrowsingHistory = true;

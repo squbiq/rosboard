@@ -114,18 +114,31 @@ class HydroPhotoViewer extends Viewer {
       .appendTo(container);
   }
 
-  onData(msg) {
-    let newItems = this.extractItems(msg);
-    if(!newItems.length) return;
+onData(msg) {
+  let newItems = this.extractItems(msg);
+  if(!newItems.length) return;
 
-    this.items.push(...newItems);
-    this.renderMap();
-    if(!this.isBrowsingHistory) {
-      this.showItem(this.items.length - 1);
+  let lastChangedIndex = -1;
+
+  newItems.forEach((newItem) => {
+    let existingIndex = this.items.findIndex((item) =>
+      item && item.pool_id === newItem.pool_id
+    );
+
+    if(existingIndex >= 0) {
+      this.items[existingIndex] = newItem;
+      lastChangedIndex = existingIndex;
     } else {
-      this.updateButtons();
+      this.items.push(newItem);
+      lastChangedIndex = this.items.length - 1;
     }
-  }
+  });
+
+  this.renderMap();
+
+  this.isBrowsingHistory = false;
+  this.showItem(lastChangedIndex);
+}
 
   navigateTo(index) {
     this.isBrowsingHistory = true;
@@ -133,17 +146,16 @@ class HydroPhotoViewer extends Viewer {
     this.scheduleLatestItem();
   }
 
-  scheduleLatestItem() {
-    if(this.historyResetTimeout) {
-      clearTimeout(this.historyResetTimeout);
-    }
-
-    this.historyResetTimeout = setTimeout(() => {
-      this.historyResetTimeout = null;
-      this.isBrowsingHistory = false;
-      this.showItem(this.items.length - 1);
-    }, 5000);
+scheduleLatestItem() {
+  if(this.historyResetTimeout) {
+    clearTimeout(this.historyResetTimeout);
   }
+
+  this.historyResetTimeout = setTimeout(() => {
+    this.historyResetTimeout = null;
+    this.isBrowsingHistory = false;
+  }, 5000);
+}
 
   extractItems(msg) {
     if(Array.isArray(msg)) return msg;
@@ -156,65 +168,66 @@ class HydroPhotoViewer extends Viewer {
     return collection || ("pool_id" in msg ? [msg] : []);
   }
 
-  renderMap() {
-    this.markerLayer.clearLayers();
-    this.markers = [];
-    let positions = [];
+renderMap() {
+  this.markerLayer.clearLayers();
+  this.markers = [];
+  let positions = [];
 
-    this.items.forEach((item) => {
-      let lat = Number(item.lat);
-      let lon = Number(item.lon);
-      if(!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        this.markers.push(null);
-        return;
-      }
-
-      let position = [lat, lon];
-      positions.push(position);
-      this.markers.push(
-        L.marker(position)
-          .bindPopup(`Pool ID: ${item.pool_id}<br>Lat: ${lat}<br>Lon: ${lon}`)
-          .addTo(this.markerLayer)
-      );
-    });
-
-    if(positions.length === 1) {
-      this.map.setView(positions[0], 17);
-    } else if(positions.length > 1) {
-      this.map.fitBounds(L.latLngBounds(positions), {
-        padding: [30, 30],
-        maxZoom: 18,
-      });
-    }
-  }
-
-  showItem(index) {
-    if(!this.items.length) {
-      this.currentIndex = -1;
-      this.poolValue.text("-");
-      this.photo.hide().removeAttr("src");
-      this.emptyPhotoText.show();
-      this.updateButtons();
+  this.items.forEach((item, index) => {
+    let lat = Number(item.lat);
+    let lon = Number(item.lon);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      this.markers[index] = null;
       return;
     }
 
-    this.currentIndex = Math.max(0, Math.min(index, this.items.length - 1));
-    let item = this.items[this.currentIndex];
-    this.poolValue.text(item.pool_id !== undefined ? item.pool_id : "-");
+    let position = [lat, lon];
+    positions.push(position);
 
-    let photoUrl = this.getPhotoUrl(item.photo);
-    if(photoUrl) {
-      this.photo.attr("src", photoUrl).show();
-      this.emptyPhotoText.hide();
-    } else {
-      this.photo.hide().removeAttr("src");
-      this.emptyPhotoText.show();
-    }
+    this.markers[index] = L.marker(position)
+      .bindPopup(`Pool ID: ${item.pool_id}<br>Lat: ${lat}<br>Lon: ${lon}`)
+      .addTo(this.markerLayer);
+  });
 
-    let marker = this.markers[this.currentIndex];
-    if(marker) marker.openPopup();
-    this.updateButtons();
+  if(positions.length > 1) {
+    this.map.fitBounds(L.latLngBounds(positions), {
+      padding: [30, 30],
+      maxZoom: 18,
+    });
   }
+}
+
+showItem(index) {
+  if(!this.items.length) {
+    this.currentIndex = -1;
+    this.poolValue.text("-");
+    this.photo.hide().removeAttr("src");
+    this.emptyPhotoText.show();
+    this.updateButtons();
+    return;
+  }
+
+  this.currentIndex = Math.max(0, Math.min(index, this.items.length - 1));
+  let item = this.items[this.currentIndex];
+  this.poolValue.text(item.pool_id !== undefined ? item.pool_id : "-");
+
+  let photoUrl = this.getPhotoUrl(item.photo);
+  if(photoUrl) {
+    this.photo.attr("src", photoUrl).show();
+    this.emptyPhotoText.hide();
+  } else {
+    this.photo.hide().removeAttr("src");
+    this.emptyPhotoText.show();
+  }
+
+  let marker = this.markers[this.currentIndex];
+  if(marker) {
+    this.map.setView(marker.getLatLng(), 17);
+    marker.openPopup();
+  }
+
+  this.updateButtons();
+}
 
   updateButtons() {
     this.previousButton.prop("disabled", this.currentIndex <= 0);

@@ -1,22 +1,21 @@
-"use strict";
-
 class PanelReportViewer extends Viewer {
   onCreate() {
+    this.latestReportsByPanelId = {};
+    this.panelIdOrder = [];
+    this.selectedPanelIndex = 0;
+
     this.panelCards = [this.createPanelCard(this.card, true)];
     super.onCreate();
   }
 
   createPanelCard(card, isPrimary) {
     if(!isPrimary) {
-      card.title = $("<div></div>")
-        .addClass("card-title")
-        .appendTo(card);
-      card.content = $("<div></div>")
-        .addClass("card-content")
-        .appendTo(card);
+      card.title = $("<div></div>").addClass("card-title").appendTo(card);
+      card.content = $("<div></div>").addClass("card-content").appendTo(card);
     }
 
     card.title.text("Panel Report");
+
     let panelCard = {
       card: card,
       values: {},
@@ -58,6 +57,7 @@ class PanelReportViewer extends Viewer {
       .appendTo(card.content);
 
     this.addValue(panelCard, "timestamp", "Czas (header.stamp)");
+    this.addValue(panelCard, "panel_id", "ID panelu (panel_id)");
     this.addValue(panelCard, "panel_angle", "Kąt panelu (panel_angle)");
     this.addValue(panelCard, "lat", "Szerokość geograficzna (lat)");
     this.addValue(panelCard, "lon", "Długość geograficzna (lon)");
@@ -83,6 +83,31 @@ class PanelReportViewer extends Viewer {
       })
       .appendTo(card.content);
 
+    panelCard.navContainer = $("<div></div>")
+      .css({
+        "display": "flex",
+        "align-items": "center",
+        "justify-content": "center",
+        "gap": "12px",
+        "padding": "0 12px 12px",
+      })
+      .appendTo(card.content);
+
+    panelCard.prevButton = $("<button></button>")
+      .text("←")
+      .on("click", () => this.selectPreviousPanel())
+      .appendTo(panelCard.navContainer);
+
+    panelCard.panelCounter = $("<span></span>")
+      .addClass("monospace")
+      .text("0 / 0")
+      .appendTo(panelCard.navContainer);
+
+    panelCard.nextButton = $("<button></button>")
+      .text("→")
+      .on("click", () => this.selectNextPanel())
+      .appendTo(panelCard.navContainer);
+
     return panelCard;
   }
 
@@ -104,17 +129,87 @@ class PanelReportViewer extends Viewer {
   }
 
   onData(msg) {
-    let reports = this.extractReports(msg);
-    this.ensureCardCount(Math.max(reports.length, 1));
+  let reports = this.extractReports(msg);
 
-    if(!reports.length) {
-      this.clearPanelCard(this.panelCards[0]);
-    } else {
-      reports.forEach((report, index) => {
-        this.renderPanelCard(this.panelCards[index], report, index);
-      });
+  let lastReceivedPanelIdKey = null;
+
+  reports.forEach((report) => {
+    if(report.panel_id === undefined || report.panel_id === null) return;
+
+    let panelId = Number(report.panel_id);
+    if(!Number.isFinite(panelId)) return;
+
+    report._panel_id_key = String(panelId);
+    lastReceivedPanelIdKey = report._panel_id_key;
+
+    if(!(report._panel_id_key in this.latestReportsByPanelId)) {
+      this.panelIdOrder.push(report._panel_id_key);
+      this.panelIdOrder.sort((a, b) => Number(a) - Number(b));
     }
 
+    this.latestReportsByPanelId[report._panel_id_key] = report;
+  });
+
+  if(lastReceivedPanelIdKey !== null) {
+    this.selectedPanelIndex =
+      this.panelIdOrder.indexOf(lastReceivedPanelIdKey);
+  }
+
+  if(
+    this.selectedPanelIndex < 0 ||
+    this.selectedPanelIndex >= this.panelIdOrder.length
+  ) {
+    this.selectedPanelIndex =
+      Math.max(this.panelIdOrder.length - 1, 0);
+  }
+
+  this.renderSelectedPanel();
+  $grid.masonry("layout");
+}
+
+  renderSelectedPanel() {
+    let panelCard = this.panelCards[0];
+
+    if(!this.panelIdOrder.length) {
+      this.clearPanelCard(panelCard);
+      panelCard.panelCounter.text("0 / 0");
+      panelCard.prevButton.prop("disabled", true);
+      panelCard.nextButton.prop("disabled", true);
+      return;
+    }
+
+    let panelIdKey = this.panelIdOrder[this.selectedPanelIndex];
+    let report = this.latestReportsByPanelId[panelIdKey];
+
+    this.renderPanelCard(panelCard, report, this.selectedPanelIndex);
+
+    panelCard.panelCounter.text(
+      `${this.selectedPanelIndex + 1} / ${this.panelIdOrder.length}`
+    );
+
+    let disabled = this.panelIdOrder.length <= 1;
+    panelCard.prevButton.prop("disabled", disabled);
+    panelCard.nextButton.prop("disabled", disabled);
+  }
+
+  selectPreviousPanel() {
+    if(!this.panelIdOrder.length) return;
+
+    this.selectedPanelIndex =
+      (this.selectedPanelIndex - 1 + this.panelIdOrder.length) %
+      this.panelIdOrder.length;
+
+    this.renderSelectedPanel();
+    $grid.masonry("layout");
+  }
+
+  selectNextPanel() {
+    if(!this.panelIdOrder.length) return;
+
+    this.selectedPanelIndex =
+      (this.selectedPanelIndex + 1) % this.panelIdOrder.length;
+
+    this.renderSelectedPanel();
     $grid.masonry("layout");
   }
 
@@ -127,32 +222,28 @@ class PanelReportViewer extends Viewer {
       value.some((item) =>
         item &&
         typeof item === "object" &&
-        ("panel_image" in item || "panel_angle" in item)
+        ("panel_image" in item || "panel_angle" in item || "panel_id" in item)
       )
     );
-    return collection || ("panel_image" in msg || "panel_angle" in msg ? [msg] : []);
-  }
 
-  ensureCardCount(count) {
-    while(this.panelCards.length < count) {
-      let card = newCard();
-      let panelCard = this.createPanelCard(card, false);
-      this.panelCards.push(panelCard);
-      appendViewerCard(card);
-    }
-
-    while(this.panelCards.length > count) {
-      let panelCard = this.panelCards.pop();
-      $grid.masonry("remove", panelCard.card);
-    }
+    return collection || (
+      "panel_image" in msg || "panel_angle" in msg || "panel_id" in msg
+        ? [msg]
+        : []
+    );
   }
 
   renderPanelCard(panelCard, report, index) {
     let topicName = report._topic_name || this.topicName || "PanelReport";
-    panelCard.card.title.text(`${topicName} - ${index + 1}`);
+
+    panelCard.card.title.text(
+      `${topicName} - panel ${report.panel_id}`
+    );
+
     panelCard.values.timestamp.text(
       this.formatStamp(report.header && report.header.stamp)
     );
+    panelCard.values.panel_id.text(this.formatNumber(report.panel_id, 0));
     panelCard.values.panel_angle.text(this.formatNumber(report.panel_angle, 0));
     panelCard.values.lat.text(this.formatNumber(report.lat, 7));
     panelCard.values.lon.text(this.formatNumber(report.lon, 7));
@@ -209,12 +300,14 @@ class PanelReportViewer extends Viewer {
   getImageUrl(image) {
     if(!image) return null;
     if(image._data_jpeg) return "data:image/jpeg;base64," + image._data_jpeg;
+
     if(typeof image.data === "string") {
       let mimeType = image.format && image.format.includes("png")
         ? "image/png"
         : "image/jpeg";
       return `data:${mimeType};base64,${image.data}`;
     }
+
     return null;
   }
 
@@ -225,6 +318,7 @@ class PanelReportViewer extends Viewer {
     let nanoseconds = Number(
       stamp.nanosec !== undefined ? stamp.nanosec : stamp.nsecs || 0
     );
+
     if(!Number.isFinite(seconds)) return "-";
 
     let date = new Date(seconds * 1000 + nanoseconds / 1e6);
@@ -248,10 +342,10 @@ class PanelReportViewer extends Viewer {
   }
 
   destroy() {
-    while(this.panelCards && this.panelCards.length > 1) {
-      let panelCard = this.panelCards.pop();
-      $grid.masonry("remove", panelCard.card);
-    }
+    this.latestReportsByPanelId = {};
+    this.panelIdOrder = [];
+    this.selectedPanelIndex = 0;
+
     super.destroy();
     $grid.masonry("layout");
   }
@@ -266,3 +360,4 @@ PanelReportViewer.supportedTypes = [
 PanelReportViewer.maxUpdateRate = 10.0;
 
 Viewer.registerViewer(PanelReportViewer);
+
