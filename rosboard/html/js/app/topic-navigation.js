@@ -1,5 +1,9 @@
 "use strict";
 
+
+
+
+
 function onTopics(topics) {
   let newTopicsStr = JSON.stringify(topics);
   if(newTopicsStr === currentTopicsStr) return;
@@ -13,23 +17,27 @@ function onTopics(topics) {
 
   addTopicTreeToNav(topicTree[0], $("#topics-nav-ros"));
 
-  let camerOptions = {
-    webrtcSrc: "http://127.0.0.1:8889/test"
-  };
-
-  let droneRoute = {
-    topicName: "/drone_mission_planner/location_history",
-    topicType: "droniada_msgs/msg/DroneRoute",
-    options: { title: "Pozycja Drona" }
-  };
-
-  let cargoPoints = {
-    topicName: "/cargo_points",
-    topicType: "droniada_msgs/msg/GeoPoints",
-    options: { title: "Pozycja Krotek", mode: "points" }
+  let CameraVideo = { // Stream Video Webrtc 
+    viewer: CamViewer, viewerId: "camera", options: {
+      webrtcSrc: "http://127.0.0.1:8889/test"
+    }
   }
 
-  // Hydrolab, LML Basic, LML Advanced, Sztafeta, Woda, Ogien
+  let DroneRoute = { // Pozycja / Ścieżka drona
+    topicName: "/drone_mission_planner/location_history",
+    topicType: "droniada_msgs/msg/DroneRoute",
+    options: { title: "Lokalizacja Drona" }
+  };
+
+  let Compass = { // Kompass
+    topicName: "/mavros/global_position/compass_hdg",
+    topicType: "std_msgs/msg/Float64"
+  };
+
+  let MissionStatus = { // Status Misji
+    topicName: "/mission_status",
+    topicType: "droniada_msgs/msg/MissionStatus"
+  };
 
   // 1. Konkurencja Hydrolab
   $("<a></a>")
@@ -37,12 +45,7 @@ function onTopics(topics) {
     .click(() => {
       clearViewers();
       initSubscribe([
-        {
-          topicName: "/mavros/global_position/compass_hdg",
-          topicType: "std_msgs/msg/Float64"
-        },
-        droneRoute,
-        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        Compass, DroneRoute, CameraVideo, MissionStatus,
         {topicName: "/hydro_photo", topicType: "droniada_msgs/msg/HydroPhoto"},
         {topicName: "/hydro_info", topicType: "droniada_msgs/msg/HydroInfo"},
       ]);
@@ -57,49 +60,39 @@ function onTopics(topics) {
       console.log(subscriptions);
       clearViewers();
       initSubscribe([
-        {
-          topicName: "/mavros/global_position/compass_hdg",
-          topicType: "std_msgs/msg/Float64"
-        },
-        droneRoute,
-        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        Compass, DroneRoute, CameraVideo, MissionStatus
       ]);
     })
     .text("LML Basic")
     .appendTo($("#topics-nav-system"));
 
-  // 3. LML Advanced, TODO Dodanie BallStatus
+  // 3. LML Advanced
   $("<a></a>")
     .addClass("mdl-navigation__link")
     .click(() => {
       console.log(subscriptions);
       clearViewers();
       initSubscribe([
-        {
-          topicName: "/mavros/global_position/compass_hdg",
-          topicType: "std_msgs/msg/Float64"
-        },
-        droneRoute,
-        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        Compass, DroneRoute, CameraVideo, MissionStatus,
+        { topicName: "/ball_status", topicType: "droniada_msgs/msg/BallStatus" } // Status Piłek
       ]);
     })
     .text("LML Advanced")
     .appendTo($("#topics-nav-system"));
 
-  // 4. Sztafeta, TODO Dodanie BallStatus
+  // 4. Sztafeta
   $("<a></a>")
     .addClass("mdl-navigation__link")
     .click(() => {
       console.log(subscriptions);
       clearViewers();
       initSubscribe([
-        {
-          topicName: "/mavros/global_position/compass_hdg",
-          topicType: "std_msgs/msg/Float64"
-        },
-        cargoPoints,
-        droneRoute,
-        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        Compass, DroneRoute, CameraVideo, MissionStatus,
+        { // Pozycja krotek jako punkty
+          topicName: "/cargo_points",
+          topicType: "droniada_msgs/msg/GeoPoints",
+          options: { title: "Pozycja Krotek", mode: "points" }
+        } 
       ]);
     })
     .text("Sztafeta")
@@ -112,12 +105,7 @@ function onTopics(topics) {
       console.log(subscriptions);
       clearViewers();
       initSubscribe([
-        {
-          topicName: "/mavros/global_position/compass_hdg",
-          topicType: "std_msgs/msg/Float64"
-        },
-        droneRoute,
-        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        Compass, DroneRoute, CameraVideo, MissionStatus,
       ]);
     })
     .text("Woda")
@@ -130,12 +118,7 @@ function onTopics(topics) {
       console.log(subscriptions);
       clearViewers();
       initSubscribe([
-        {
-          topicName: "/mavros/global_position/compass_hdg",
-          topicType: "std_msgs/msg/Float64"
-        },
-        droneRoute,
-        {viewer: CamViewer, viewerId: "camera", options: camerOptions},
+        Compass, DroneRoute, CameraVideo, MissionStatus,
         {topicName: "/panel_report", topicType: "droniada_msgs/msg/PanelReport"},
       ]);
     })

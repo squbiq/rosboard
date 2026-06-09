@@ -2,7 +2,7 @@
 
 class HydroInfoViewer extends Viewer {
   onCreate() {
-    this.card.title.text("HydroInfo");
+    this.card.title.text(this.opitions.title || "HydroInfo");
     this.items = [];
     this.currentIndex = -1;
     this.values = {};

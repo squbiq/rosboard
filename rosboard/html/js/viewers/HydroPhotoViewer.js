@@ -5,7 +5,7 @@ class HydroPhotoViewer extends Viewer {
     this.items = [];
     this.currentIndex = -1;
     this.markers = [];
-    this.card.title.text("HydroPhoto");
+    this.card.title.text(this.opitions.title || "HydroPhoto");
 
     this.photoContainer = $("<div></div>")
       .css({
@@ -28,7 +28,7 @@ class HydroPhotoViewer extends Viewer {
       .appendTo(this.photoContainer);
 
     this.emptyPhotoText = $("<span></span>")
-      .text("Waiting for photo ...")
+      .text("Oczekiwanie na zdjęcie ...")
       .css({"color": "#ffffff"})
       .appendTo(this.photoContainer);
 

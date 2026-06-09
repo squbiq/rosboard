@@ -20,6 +20,8 @@ importJsOnce("js/viewers/JointStateViewer.js");
 importJsOnce("js/viewers/CompassViewer.js");
 importJsOnce("js/viewers/HydroPhotoViewer.js");
 importJsOnce("js/viewers/HydroInfoViewer.js");
+importJsOnce("js/viewers/StatusViewer.js");
+importJsOnce("js/viewers/BallStatusViewer.js");
 importJsOnce("js/viewers/PanelReportViewer.js");
 importJsOnce("js/viewers/CamViewer.js");
 

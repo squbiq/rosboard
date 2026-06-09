@@ -3,3 +3,6 @@ node_modules/
 rosboard/build/*
 rosboard/log/*
 rosboard/install/*
+package-lock.json
+package.json
+rosboard/html/jsconfig.json
