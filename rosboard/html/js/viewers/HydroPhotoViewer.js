@@ -5,7 +5,9 @@ class HydroPhotoViewer extends Viewer {
     this.items = [];
     this.currentIndex = -1;
     this.markers = [];
-    this.card.title.text(this.opitions.title || "HydroPhoto");
+    this.historyResetTimeout = null;
+    this.isBrowsingHistory = false;
+    this.card.title.text(this.options.title || "HydroPhoto");
 
     this.photoContainer = $("<div></div>")
       .css({
@@ -97,8 +99,12 @@ class HydroPhotoViewer extends Viewer {
       .appendTo(controls);
     this.nextButton = this.createArrowButton("chevron_right", controls);
 
-    this.previousButton.click(() => this.showItem(this.currentIndex - 1));
-    this.nextButton.click(() => this.showItem(this.currentIndex + 1));
+    this.previousButton.click(() =>
+      this.navigateTo(this.currentIndex - 1)
+    );
+    this.nextButton.click(() =>
+      this.navigateTo(this.currentIndex + 1)
+    );
   }
 
   createArrowButton(icon, container) {
@@ -109,10 +115,34 @@ class HydroPhotoViewer extends Viewer {
   }
 
   onData(msg) {
-    this.card.title.text(msg._topic_name || "HydroPhoto");
-    this.items = this.extractItems(msg);
+    let newItems = this.extractItems(msg);
+    if(!newItems.length) return;
+
+    this.items.push(...newItems);
     this.renderMap();
-    this.showItem(this.items.length - 1);
+    if(!this.isBrowsingHistory) {
+      this.showItem(this.items.length - 1);
+    } else {
+      this.updateButtons();
+    }
+  }
+
+  navigateTo(index) {
+    this.isBrowsingHistory = true;
+    this.showItem(index);
+    this.scheduleLatestItem();
+  }
+
+  scheduleLatestItem() {
+    if(this.historyResetTimeout) {
+      clearTimeout(this.historyResetTimeout);
+    }
+
+    this.historyResetTimeout = setTimeout(() => {
+      this.historyResetTimeout = null;
+      this.isBrowsingHistory = false;
+      this.showItem(this.items.length - 1);
+    }, 5000);
   }
 
   extractItems(msg) {
@@ -197,11 +227,18 @@ class HydroPhotoViewer extends Viewer {
   getPhotoUrl(photo) {
     if(!photo) return null;
     if(photo._data_jpeg) return "data:image/jpeg;base64," + photo._data_jpeg;
+
+    let mimeType = photo.format && photo.format.includes("png")
+      ? "image/png"
+      : "image/jpeg";
     if(typeof photo.data === "string") {
-      let mimeType = photo.format && photo.format.includes("png")
-        ? "image/png"
-        : "image/jpeg";
       return `data:${mimeType};base64,${photo.data}`;
+    }
+    if(Array.isArray(photo.data) || photo.data instanceof Uint8Array) {
+      let binary = Array.from(photo.data, (value) =>
+        String.fromCharCode(Number(value) & 0xff)
+      ).join("");
+      return `data:${mimeType};base64,${window.btoa(binary)}`;
     }
     return null;
   }
@@ -211,6 +248,10 @@ class HydroPhotoViewer extends Viewer {
   }
 
   destroy() {
+    if(this.historyResetTimeout) {
+      clearTimeout(this.historyResetTimeout);
+      this.historyResetTimeout = null;
+    }
     if(this.map) {
       this.map.remove();
       this.map = null;
@@ -227,6 +268,6 @@ HydroPhotoViewer.supportedTypes = [
   "*/msg/HydroPhoto",
 ];
 
-HydroPhotoViewer.maxUpdateRate = 10.0;
+HydroPhotoViewer.maxUpdateRate = Infinity;
 
 Viewer.registerViewer(HydroPhotoViewer);

@@ -23,8 +23,9 @@ class BallStatusViewer extends Viewer {
         "margin": "12px",
         "padding": "8px 12px",
         "line-height": "1.4em",
-        "overflow-x": "auto",
+        "overflow-x": "hidden",
         "overflow-y": "auto",
+        "overflow-wrap": "anywhere",
         "border": "1px solid #505050",
         "border-radius": "4px",
       })
@@ -44,13 +45,24 @@ class BallStatusViewer extends Viewer {
       this.emptyMessage = null;
     }
 
-    $("<div></div>")
-      .text(this.formatLogEntry(msg))
+    let logEntry = this.formatLogEntry(msg);
+    let logItem = $("<div></div>")
       .css({
         "min-height": "1.4em",
-        "white-space": "nowrap",
+        "white-space": "normal",
       })
       .prependTo(this.logContainer);
+
+    $("<span></span>")
+      .text(`[${logEntry.timestamp}]`)
+      .appendTo(logItem);
+    $("<span></span>")
+      .text(logEntry.message)
+      .css({
+        "display": "inline-block",
+        "margin-left": "0.5em",
+      })
+      .appendTo(logItem);
 
     this.logContainer.scrollTop(0);
   }
@@ -63,7 +75,10 @@ class BallStatusViewer extends Viewer {
       `color ${msg.color}`;
     let point = this.formatPointType(msg.point_type);
 
-    return `[${timestamp}] ${status} ${color} ${point}`;
+    return {
+      timestamp: timestamp,
+      message: `${status} ${color} ${point}`,
+    };
   }
 
   formatPointType(pointType) {

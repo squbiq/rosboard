@@ -2,9 +2,11 @@
 
 class HydroInfoViewer extends Viewer {
   onCreate() {
-    this.card.title.text(this.opitions.title || "HydroInfo");
+    this.card.title.text(this.options.title || "HydroInfo");
     this.items = [];
     this.currentIndex = -1;
+    this.historyResetTimeout = null;
+    this.isBrowsingHistory = false;
     this.values = {};
 
     this.infoContainer = $("<div></div>")
@@ -77,8 +79,12 @@ class HydroInfoViewer extends Viewer {
       .appendTo(controls);
     this.nextButton = this.createArrowButton("chevron_right", controls);
 
-    this.previousButton.click(() => this.showItem(this.currentIndex - 1));
-    this.nextButton.click(() => this.showItem(this.currentIndex + 1));
+    this.previousButton.click(() =>
+      this.navigateTo(this.currentIndex - 1)
+    );
+    this.nextButton.click(() =>
+      this.navigateTo(this.currentIndex + 1)
+    );
   }
 
   createArrowButton(icon, container) {
@@ -89,9 +95,33 @@ class HydroInfoViewer extends Viewer {
   }
 
   onData(msg) {
-    this.card.title.text(msg._topic_name || "HydroInfo");
-    this.items = this.extractItems(msg);
-    this.showItem(this.items.length - 1);
+    let newItems = this.extractItems(msg);
+    if(!newItems.length) return;
+
+    this.items.push(...newItems);
+    if(!this.isBrowsingHistory) {
+      this.showItem(this.items.length - 1);
+    } else {
+      this.updateButtons();
+    }
+  }
+
+  navigateTo(index) {
+    this.isBrowsingHistory = true;
+    this.showItem(index);
+    this.scheduleLatestItem();
+  }
+
+  scheduleLatestItem() {
+    if(this.historyResetTimeout) {
+      clearTimeout(this.historyResetTimeout);
+    }
+
+    this.historyResetTimeout = setTimeout(() => {
+      this.historyResetTimeout = null;
+      this.isBrowsingHistory = false;
+      this.showItem(this.items.length - 1);
+    }, 5000);
   }
 
   extractItems(msg) {
@@ -138,6 +168,14 @@ class HydroInfoViewer extends Viewer {
     let number = Number(value);
     return Number.isFinite(number) ? number.toFixed(2) : "-";
   }
+
+  destroy() {
+    if(this.historyResetTimeout) {
+      clearTimeout(this.historyResetTimeout);
+      this.historyResetTimeout = null;
+    }
+    super.destroy();
+  }
 }
 
 HydroInfoViewer.friendlyName = "HydroInfo";
@@ -146,6 +184,6 @@ HydroInfoViewer.supportedTypes = [
   "*/msg/HydroInfo",
 ];
 
-HydroInfoViewer.maxUpdateRate = 10.0;
+HydroInfoViewer.maxUpdateRate = Infinity;
 
 Viewer.registerViewer(HydroInfoViewer);
