@@ -92,7 +92,7 @@ function onTopics(topics) {
         { // Pozycja krotek jako punkty
           topicName: "/cargo_points",
           topicType: "droniada_msgs/msg/GeoPoints",
-          options: { title: "Pozycja Krotek", mode: "points" }
+          options: { title: "Pozycje Zrzutów", mode: "sztafeta" }
         } 
       ]);
     })

@@ -2,7 +2,13 @@
 
 class MapViewer extends Viewer {
   onCreate() {
-    this.mapMode = this.options.mode === "points" ? "points" : "path";
+    this.mapMode =
+      this.options.mode === "points"
+        ? "points"
+        : this.options.mode === "sztafeta"
+          ? "sztafeta"
+          : "path";
+
     this.card.title.text(this.options.title || "Dane pojazdu");
 
     this.viewer = $("<div></div>")
@@ -41,8 +47,39 @@ class MapViewer extends Viewer {
       color: "#ff9800",
       weight: 4,
     }).addTo(this.map);
+
     this.currentMarker = null;
     this.pointMarkers = [];
+
+    this.sztafetaIcon = L.divIcon({
+      className: "sztafeta-pin",
+      html: `
+        <div style="
+          width: 28px;
+          height: 28px;
+          background: #ff9800;
+          border: 2px solid #000;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+        ">
+          <span style="
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1;
+            transform: rotate(45deg);
+            display: block;
+          ">↓</span>
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      popupAnchor: [0, -28],
+    });
 
     setTimeout(() => this.map.invalidateSize(), 0);
     super.onCreate();
@@ -82,6 +119,7 @@ class MapViewer extends Viewer {
             ? point.lon
             : point.lng !== undefined ? point.lng : point.longitude
         );
+
         return Number.isFinite(lat) && Number.isFinite(lon)
           ? [lat, lon]
           : null;
@@ -97,6 +135,8 @@ class MapViewer extends Viewer {
 
     if(this.mapMode === "points") {
       this.renderPoints(positions);
+    } else if(this.mapMode === "sztafeta") {
+      this.renderSztafeta(positions);
     } else {
       this.renderPath(positions);
     }
@@ -134,12 +174,14 @@ class MapViewer extends Viewer {
 
   renderPoints(positions) {
     this.routeLine.setLatLngs([]);
+
     if(this.currentMarker) {
       this.currentMarker.remove();
       this.currentMarker = null;
     }
 
     this.clearPointMarkers();
+
     this.pointMarkers = positions.map((position, index) =>
       L.marker(position)
         .bindPopup(`Punkt ${index + 1}`)
@@ -149,6 +191,36 @@ class MapViewer extends Viewer {
     let lastPosition = positions[positions.length - 1];
     this.updatePositionInfo(lastPosition);
     this.fitMapToPositions(positions, lastPosition);
+  }
+
+  renderSztafeta(positions) {
+    this.routeLine.setLatLngs([]);
+
+    if(this.currentMarker) {
+      this.currentMarker.remove();
+      this.currentMarker = null;
+    }
+
+    this.clearPointMarkers();
+
+    this.pointMarkers = positions.map((position, index) => {
+      let lat = position[0].toFixed(7);
+      let lon = position[1].toFixed(7);
+
+      return L.marker(position, {icon: this.sztafetaIcon})
+        .bindPopup(`Zrzut ${index + 1}<br>${lat}<br>${lon}`)
+        .addTo(this.map);
+    });
+
+    let lastPosition = positions[positions.length - 1];
+    let lastMarker = this.pointMarkers[this.pointMarkers.length - 1];
+
+    this.updatePositionInfo(lastPosition);
+    this.map.setView(lastPosition, 17);
+
+    if(lastMarker) {
+      lastMarker.openPopup();
+    }
   }
 
   clearPointMarkers() {
@@ -181,6 +253,7 @@ class MapViewer extends Viewer {
       this.map.remove();
       this.map = null;
     }
+
     super.destroy();
   }
 }
@@ -189,6 +262,7 @@ MapViewer.friendlyName = "Street Map";
 
 MapViewer.supportedTypes = [
   "geographic_msgs/msg/GeoPoint",
+  "geographic_msgs/msg/GeoPoint[]",
   "mavros_msgs/msg/GPSRAW",
   "droniada_msgs/msg/DroneRoute",
   "droniada_msgs/msg/GeoPoints"
